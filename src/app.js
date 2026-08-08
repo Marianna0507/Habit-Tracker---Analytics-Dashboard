@@ -10,6 +10,7 @@ app.get('/habits', async (req, res) => {
   const { user_id } = req.query;
   try {
     const result = user_id
+    //checks if that userid exists in the database and if it does, it will return all the habits for that user. If not, it will return all habits in the database.
       ? await pool.query('SELECT * FROM habits WHERE user_id = $1 ORDER BY id', [user_id])
       : await pool.query('SELECT * FROM habits ORDER BY id');
     res.json(result.rows);
