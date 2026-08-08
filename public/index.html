@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Habit Tracker</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Habit Tracker</h1>
+    <button id="logout-btn" class="hidden">Log out</button>
+  </header>
+
+  <main>
+    <section id="auth-view">
+      <div class="auth-tabs">
+        <button id="show-login" class="tab-btn active">Log in</button>
+        <button id="show-register" class="tab-btn">Register</button>
+      </div>
+
+      <form id="login-form" class="auth-form">
+        <label>Email <input type="email" id="login-email" required></label>
+        <label>Password <input type="password" id="login-password" required></label>
+        <button type="submit">Log in</button>
+      </form>
+
+      <form id="register-form" class="auth-form hidden">
+        <label>Email <input type="email" id="register-email" required></label>
+        <label>Password <input type="password" id="register-password" required minlength="6"></label>
+        <button type="submit">Register</button>
+      </form>
+
+      <p id="auth-error" class="error hidden"></p>
+    </section>
+
+    <section id="app-view" class="hidden">
+      <form id="add-habit-form">
+        <input type="text" id="habit-name" placeholder="New habit, e.g. Drink water" required>
+        <select id="habit-frequency">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+        </select>
+        <button type="submit">Add habit</button>
+      </form>
+
+      <p id="habits-error" class="error hidden"></p>
+      <ul id="habits-list"></ul>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
