@@ -1,13 +1,13 @@
 # Habit Tracker + Analytics Dashboard
 
-Phase 1: Postgres + Node CRUD backend. No auth, no frontend, no analytics yet —
-just the database and a tested Express API.
+Postgres + Node CRUD backend with JWT auth. No frontend, no analytics yet.
 
 ## Stack
 
 - Postgres 16 (Docker)
 - Node.js + Express
 - `pg` (node-postgres) — raw SQL, no ORM
+- `jsonwebtoken` + `bcryptjs` for auth
 
 ## Setup
 
@@ -21,11 +21,15 @@ just the database and a tested Express API.
    `localhost:5433` (5432 was already taken locally, so the host port was
    remapped — see `docker-compose.yml`).
 
-2. Copy `.env.example` to `.env` and adjust if needed:
+2. Copy `.env.example` to `.env` and set a real `JWT_SECRET`:
 
    ```
    cp .env.example .env
+   node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
    ```
+
+   Paste the generated string in as `JWT_SECRET`. `JWT_EXPIRES_IN` controls
+   how long a login token stays valid (e.g. `7d`).
 
 3. Apply the schema:
 
@@ -40,20 +44,13 @@ just the database and a tested Express API.
    error out; the `CREATE TABLE`/`CREATE INDEX` statements above it will
    still have succeeded.
 
-4. Seed a fake user (no auth yet, so this is manual):
-
-   ```
-   docker exec habit_tracker_db psql -U habit_user -d habit_tracker \
-     -c "INSERT INTO users (email, password_hash) VALUES ('demo@example.com', 'no-auth-yet-placeholder');"
-   ```
-
-5. Install dependencies:
+4. Install dependencies:
 
    ```
    npm install
    ```
 
-6. Run the API:
+5. Run the API:
 
    ```
    npm run dev    # nodemon, auto-restart
@@ -64,32 +61,42 @@ just the database and a tested Express API.
 
 ## Schema
 
-- `users(id, email, password_hash, created_at)` — `password_hash` is required
-  by the schema even though auth isn't implemented yet; seed a placeholder value.
+- `users(id, email, password_hash, created_at)`
 - `habits(id, user_id, name, frequency, created_at, archived)`
 - `checkins(id, habit_id, checkin_date, created_at)` — `UNIQUE(habit_id, checkin_date)`
   prevents double check-ins on the same day.
 
 ## API
 
-| Method | Path                     | Body                                  | Notes |
-|--------|--------------------------|----------------------------------------|-------|
-| GET    | `/habits`                | —                                       | Optional `?user_id=` filter |
-| POST   | `/habits`                | `{ user_id, name, frequency? }`         | `frequency` defaults to `daily` |
-| POST   | `/habits/:id/checkin`    | `{ checkin_date? }` (defaults to today) | 404 if habit doesn't exist, 409 on duplicate date |
-| GET    | `/habits/:id/checkins`   | —                                       | Newest first |
+Auth endpoints are open. Every `/habits*` endpoint requires
+`Authorization: Bearer <token>` and only ever operates on the authenticated
+user's own habits — there's no way to pass a `user_id` to act as someone else.
+
+| Method | Path                     | Auth? | Body                                    | Notes |
+|--------|--------------------------|-------|------------------------------------------|-------|
+| POST   | `/auth/register`         | No    | `{ email, password }`                     | Creates the account and returns `{ token, user }` |
+| POST   | `/auth/login`            | No    | `{ email, password }`                     | Returns `{ token }` |
+| GET    | `/habits`                | Yes   | —                                          | Only the caller's habits |
+| POST   | `/habits`                | Yes   | `{ name, frequency? }`                     | `frequency` defaults to `daily` |
+| POST   | `/habits/:id/checkin`    | Yes   | `{ checkin_date? }` (defaults to today)    | 404 if the habit doesn't exist *or* isn't yours; 409 on duplicate date |
+| GET    | `/habits/:id/checkins`   | Yes   | —                                          | Same 404 rule; newest first |
 
 ### Example (curl)
 
 ```
-curl -X POST localhost:3000/habits \
+TOKEN=$(curl -s -X POST localhost:3000/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"user_id":1,"name":"Drink water","frequency":"daily"}'
+  -d '{"email":"you@example.com","password":"something-long"}' \
+  | node -e "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>console.log(JSON.parse(d).token))")
+
+curl -X POST localhost:3000/habits \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" \
+  -d '{"name":"Drink water","frequency":"daily"}'
 
 curl -X POST localhost:3000/habits/1/checkin \
-  -H "Content-Type: application/json" -d '{}'
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{}'
 
-curl localhost:3000/habits/1/checkins
+curl localhost:3000/habits/1/checkins -H "Authorization: Bearer $TOKEN"
 ```
 
 ## Known gotcha (fixed)
@@ -102,6 +109,5 @@ plain `YYYY-MM-DD` strings instead.
 
 ## Not yet built
 
-- Auth (JWT/session, password hashing)
 - Frontend
 - Analytics endpoints (streak calculation query is stubbed in `db/queries/streak.sql`)
