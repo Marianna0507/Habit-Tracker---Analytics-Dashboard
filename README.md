@@ -1,13 +1,21 @@
 # Habit Tracker + Analytics Dashboard
 
-Postgres + Node CRUD backend with JWT auth. No frontend, no analytics yet.
+Postgres + Node CRUD backend with JWT auth, a plain HTML/JS frontend, and a
+standalone Python analytics service.
+
+## Layout
+
+- `src/` — Express API (habits, checkins, auth)
+- `public/` — plain HTML/CSS/JS frontend, served by the Express app
+- `analytics/` — standalone FastAPI service for stats (streak, completion
+  rate); not wired into the Node app yet, see `analytics/README.md`
+- `db/` — schema and role setup SQL
 
 ## Stack
 
 - Postgres 16 (Docker)
-- Node.js + Express
-- `pg` (node-postgres) — raw SQL, no ORM
-- `jsonwebtoken` + `bcryptjs` for auth
+- Node.js + Express, `pg` (raw SQL, no ORM), `jsonwebtoken` + `bcryptjs` for auth
+- Python + FastAPI for analytics, connecting via a read-only DB role
 
 ## Setup
 
@@ -76,7 +84,7 @@ user's own habits — there's no way to pass a `user_id` to act as someone else.
 |--------|--------------------------|-------|------------------------------------------|-------|
 | POST   | `/auth/register`         | No    | `{ email, password }`                     | Creates the account and returns `{ token, user }` |
 | POST   | `/auth/login`            | No    | `{ email, password }`                     | Returns `{ token }` |
-| GET    | `/habits`                | Yes   | —                                          | Only the caller's habits |
+| GET    | `/habits`                | Yes   | —                                          | Only the caller's habits; each includes `checked_in_today` |
 | POST   | `/habits`                | Yes   | `{ name, frequency? }`                     | `frequency` defaults to `daily` |
 | POST   | `/habits/:id/checkin`    | Yes   | `{ checkin_date? }` (defaults to today)    | 404 if the habit doesn't exist *or* isn't yours; 409 on duplicate date |
 | GET    | `/habits/:id/checkins`   | Yes   | —                                          | Same 404 rule; newest first |
@@ -109,5 +117,7 @@ plain `YYYY-MM-DD` strings instead.
 
 ## Not yet built
 
-- Frontend
-- Analytics endpoints (streak calculation query is stubbed in `db/queries/streak.sql`)
+- Wiring the analytics service into the Node API or frontend (it runs
+  standalone on its own port for now — see `analytics/README.md`)
+- Auth on the analytics service itself (acceptable for now: it's
+  read-only against a read-only DB role and not exposed publicly)
