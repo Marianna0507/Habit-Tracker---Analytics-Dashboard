@@ -1,6 +1,9 @@
+import csv
+import io
 from datetime import date, timedelta
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import StreamingResponse
 
 from db import get_connection
 
@@ -23,6 +26,35 @@ def compute_current_streak(checkin_dates: set[date]) -> int:
         streak += 1
         cursor -= timedelta(days=1)
     return streak
+
+
+def compute_history(created_at: date, frequency: str, checkin_dates: set[date], weeks: int = 8) -> list[dict]:
+    """Completion rate per ISO week for the last `weeks` weeks, oldest first.
+    Weeks before the habit existed are skipped; partial weeks (the habit's
+    creation week, and the current in-progress week) divide by elapsed days
+    so far rather than a flat 7, so they aren't unfairly penalized."""
+    today = date.today()
+    current_week_start = today - timedelta(days=today.weekday())
+
+    history = []
+    for i in range(weeks - 1, -1, -1):
+        week_start = current_week_start - timedelta(weeks=i)
+        week_end = week_start + timedelta(days=6)
+        if week_end < created_at:
+            continue
+
+        effective_start = max(week_start, created_at)
+        effective_end = min(week_end, today)
+        days_elapsed = (effective_end - effective_start).days + 1
+        checkins_in_week = {d for d in checkin_dates if week_start <= d <= week_end}
+
+        if frequency == "weekly":
+            rate = 1.0 if checkins_in_week else 0.0
+        else:
+            rate = round(len(checkins_in_week) / days_elapsed, 4) if days_elapsed > 0 else 0.0
+
+        history.append({"week_start": week_start.isoformat(), "completion_rate": rate})
+    return history
 
 
 def compute_completion_rate(created_at: date, frequency: str, checkin_dates: set[date]) -> float:
@@ -62,4 +94,33 @@ def habit_stats(habit_id: int):
         "habit_id": habit_id,
         "current_streak": compute_current_streak(checkin_dates),
         "completion_rate": compute_completion_rate(created_at, frequency, checkin_dates),
+        "history": compute_history(created_at, frequency, checkin_dates),
     }
+
+
+@app.get("/analytics/{habit_id}/export")
+def export_checkins(habit_id: int):
+    with get_connection() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT id FROM habits WHERE id = %s", (habit_id,))
+            if cur.fetchone() is None:
+                raise HTTPException(status_code=404, detail="Habit not found")
+
+            cur.execute(
+                "SELECT checkin_date FROM checkins WHERE habit_id = %s ORDER BY checkin_date",
+                (habit_id,),
+            )
+            rows = cur.fetchall()
+
+    buffer = io.StringIO()
+    writer = csv.writer(buffer)
+    writer.writerow(["checkin_date"])
+    for (checkin_date,) in rows:
+        writer.writerow([checkin_date.isoformat()])
+    buffer.seek(0)
+
+    return StreamingResponse(
+        buffer,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=habit-{habit_id}-checkins.csv"},
+    )
