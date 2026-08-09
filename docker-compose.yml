@@ -11,6 +11,46 @@ services:
       - "5433:5432"
     volumes:
       - habit_tracker_data:/var/lib/postgresql/data
+      # Auto-run on first init only (empty volume) - numeric prefixes
+      # control order: schema must exist before the role's grants apply.
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./db/roles/analytics_reader.sql:/docker-entrypoint-initdb.d/02-analytics-role.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U habit_user -d habit_tracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  analytics:
+    build: ./analytics
+    container_name: habit_tracker_analytics
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://analytics_reader:${ANALYTICS_READER_PASSWORD}@db:5432/habit_tracker
+      PORT: 8000
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  api:
+    build: .
+    container_name: habit_tracker_api
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://habit_user:habit_pass@db:5432/habit_tracker
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: 7d
+      PYTHON_ANALYTICS_URL: http://analytics:8000
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+      analytics:
+        condition: service_started
+    ports:
+      - "3000:3000"
 
 volumes:
   habit_tracker_data:
