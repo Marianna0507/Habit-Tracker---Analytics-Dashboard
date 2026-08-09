@@ -8,10 +8,17 @@ const habitsError = document.getElementById('habits-error');
 const habitsList = document.getElementById('habits-list');
 const calendarError = document.getElementById('calendar-error');
 const calendarTable = document.getElementById('calendar-table');
+const calendarTitle = document.getElementById('calendar-title');
 
 // Chart.js instances keyed by habit id, so we can destroy the old one
 // before drawing a new one on the same <canvas> (Chart.js throws otherwise).
 const charts = {};
+
+// Which month the calendar is currently showing - starts on the real
+// current month, moved by the prev/next buttons.
+const today0 = new Date();
+let calendarYear = today0.getFullYear();
+let calendarMonth = today0.getMonth() + 1;
 
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
@@ -256,7 +263,23 @@ async function checkin(habitId, button) {
   }
 }
 
-function renderCalendar({ days_in_month, today, habits }) {
+function formatMonthLabel(monthStr) {
+  const [y, m] = monthStr.split('-').map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+}
+
+function renderCalendar({ month, days_in_month, today, habits }) {
+  calendarTitle.textContent = formatMonthLabel(month);
+
+  // today is only non-null when the requested month is the real current
+  // month (the backend only fills it in then). For a month entirely in the
+  // past, every unchecked day is "missed"; for one entirely in the future,
+  // every day is just not-yet-happened - neither should look like the other.
+  const [viewYear, viewMonth] = month.split('-').map(Number);
+  const now = new Date();
+  const isPastMonth =
+    viewYear < now.getFullYear() || (viewYear === now.getFullYear() && viewMonth < now.getMonth() + 1);
+
   calendarTable.innerHTML = '';
 
   const thead = document.createElement('thead');
@@ -305,7 +328,7 @@ function renderCalendar({ days_in_month, today, habits }) {
         btn.setAttribute('aria-label', `Check in "${habit.name}" for today`);
         btn.addEventListener('click', () => checkinFromCalendar(habit.id, btn));
         td.appendChild(btn);
-      } else if (today !== null && day < today) {
+      } else if ((today !== null && day < today) || isPastMonth) {
         td.classList.add('cal-missed');
       } else {
         td.classList.add('cal-future');
@@ -320,7 +343,8 @@ function renderCalendar({ days_in_month, today, habits }) {
 async function loadCalendar() {
   calendarError.classList.add('hidden');
   try {
-    const res = await apiFetch('/habits/calendar');
+    const monthParam = `${calendarYear}-${String(calendarMonth).padStart(2, '0')}`;
+    const res = await apiFetch(`/habits/calendar?month=${monthParam}`);
     if (!res.ok) throw new Error('Could not load calendar');
     const data = await res.json();
     renderCalendar(data);
@@ -343,6 +367,24 @@ async function checkinFromCalendar(habitId, button) {
     button.disabled = false;
   }
 }
+
+document.getElementById('cal-prev').addEventListener('click', () => {
+  calendarMonth -= 1;
+  if (calendarMonth < 1) {
+    calendarMonth = 12;
+    calendarYear -= 1;
+  }
+  loadCalendar();
+});
+
+document.getElementById('cal-next').addEventListener('click', () => {
+  calendarMonth += 1;
+  if (calendarMonth > 12) {
+    calendarMonth = 1;
+    calendarYear += 1;
+  }
+  loadCalendar();
+});
 
 document.getElementById('add-habit-form').addEventListener('submit', async (e) => {
   e.preventDefault();
