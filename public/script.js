@@ -87,7 +87,7 @@ function renderHabits(habits) {
     const statsBtn = document.createElement('button');
     statsBtn.textContent = 'Stats';
     statsBtn.className = 'stats-btn';
-    statsBtn.addEventListener('click', () => toggleStats(habit.id, statsPanel, statsBtn));
+    statsBtn.addEventListener('click', () => toggleStats(habit, statsPanel, statsBtn));
 
     row.appendChild(info);
     row.appendChild(statsBtn);
@@ -98,7 +98,7 @@ function renderHabits(habits) {
   }
 }
 
-async function toggleStats(habitId, panel, button) {
+async function toggleStats(habit, panel, button) {
   const isHidden = panel.classList.contains('hidden');
   if (!isHidden) {
     panel.classList.add('hidden');
@@ -111,16 +111,27 @@ async function toggleStats(habitId, panel, button) {
   panel.innerHTML = '<p class="loading">Loading...</p>';
 
   try {
-    const res = await apiFetch(`/habits/${habitId}/stats`);
+    const res = await apiFetch(`/habits/${habit.id}/stats`);
     if (!res.ok) throw new Error('Could not load stats');
     const stats = await res.json();
-    renderStatsPanel(panel, habitId, stats);
+    renderStatsPanel(panel, habit, stats);
   } catch (err) {
     panel.innerHTML = `<p class="error">${err.message}</p>`;
   }
 }
 
-function renderStatsPanel(panel, habitId, stats) {
+// A history entry's week_start is the Monday of that week's bucket, not
+// "today" — labeled as a range (e.g. "Aug 3-9") so a single data point
+// doesn't look like a mismatched/wrong date next to today's check-in.
+function formatWeekLabel(weekStartStr) {
+  const start = new Date(`${weekStartStr}T00:00:00`);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = (d) => d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${fmt(start)}-${fmt(end)}`;
+}
+
+function renderStatsPanel(panel, habit, stats) {
   panel.innerHTML = '';
 
   const summary = document.createElement('p');
@@ -136,16 +147,16 @@ function renderStatsPanel(panel, habitId, stats) {
 
   const exportBtn = document.createElement('button');
   exportBtn.textContent = 'Export CSV';
-  exportBtn.addEventListener('click', () => exportCsv(habitId));
+  exportBtn.addEventListener('click', () => exportCsv(habit));
   panel.appendChild(exportBtn);
 
-  if (charts[habitId]) {
-    charts[habitId].destroy();
+  if (charts[habit.id]) {
+    charts[habit.id].destroy();
   }
-  charts[habitId] = new Chart(canvas, {
+  charts[habit.id] = new Chart(canvas, {
     type: 'line',
     data: {
-      labels: stats.history.map((h) => h.week_start),
+      labels: stats.history.map((h) => formatWeekLabel(h.week_start)),
       datasets: [{
         label: 'Completion rate',
         data: stats.history.map((h) => Math.round(h.completion_rate * 100)),
@@ -164,15 +175,20 @@ function renderStatsPanel(panel, habitId, stats) {
   });
 }
 
-async function exportCsv(habitId) {
+function safeFilename(name, fallback) {
+  const cleaned = name.replace(/[\\/:*?"<>|]+/g, '-').trim();
+  return cleaned || fallback;
+}
+
+async function exportCsv(habit) {
   try {
-    const res = await apiFetch(`/habits/${habitId}/export`);
+    const res = await apiFetch(`/habits/${habit.id}/export`);
     if (!res.ok) throw new Error('Export failed');
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `habit-${habitId}-checkins.csv`;
+    a.download = `${safeFilename(habit.name, `habit-${habit.id}`)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {

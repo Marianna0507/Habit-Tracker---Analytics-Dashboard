@@ -1,5 +1,6 @@
 import csv
 import io
+import re
 from datetime import date, timedelta
 
 from fastapi import FastAPI, HTTPException
@@ -98,13 +99,20 @@ def habit_stats(habit_id: int):
     }
 
 
+def safe_filename(name: str, fallback: str) -> str:
+    cleaned = re.sub(r'[\\/:*?"<>|]+', "-", name).strip()
+    return cleaned or fallback
+
+
 @app.get("/analytics/{habit_id}/export")
 def export_checkins(habit_id: int):
     with get_connection() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT id FROM habits WHERE id = %s", (habit_id,))
-            if cur.fetchone() is None:
+            cur.execute("SELECT name FROM habits WHERE id = %s", (habit_id,))
+            habit = cur.fetchone()
+            if habit is None:
                 raise HTTPException(status_code=404, detail="Habit not found")
+            habit_name = habit[0]
 
             cur.execute(
                 "SELECT checkin_date FROM checkins WHERE habit_id = %s ORDER BY checkin_date",
@@ -119,8 +127,11 @@ def export_checkins(habit_id: int):
         writer.writerow([checkin_date.isoformat()])
     buffer.seek(0)
 
+    filename = safe_filename(habit_name, f"habit-{habit_id}") + ".csv"
+    content_disposition = "attachment; filename=" + filename
+
     return StreamingResponse(
         buffer,
         media_type="text/csv",
-        headers={"Content-Disposition": f"attachment; filename=habit-{habit_id}-checkins.csv"},
+        headers={"Content-Disposition": content_disposition},
     )
