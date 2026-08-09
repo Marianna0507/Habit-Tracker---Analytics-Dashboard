@@ -54,6 +54,52 @@ router.get('/', async (req, res) => {
   }
 });
 
+// GET /habits/calendar?month=YYYY-MM - every habit with which days of that
+// month it was checked in, for rendering a monthly grid. Defaults to the
+// current month. One query for all habits, to avoid an N+1 fetch per habit.
+router.get('/calendar', async (req, res) => {
+  const monthParam = req.query.month;
+  if (monthParam && !/^\d{4}-\d{2}$/.test(monthParam)) {
+    return res.status(400).json({ error: 'month must be in YYYY-MM format' });
+  }
+  const now = new Date();
+  const [year, month] = monthParam
+    ? monthParam.split('-').map(Number)
+    : [now.getFullYear(), now.getMonth() + 1];
+  const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+
+  try {
+    const result = await pool.query(
+      `SELECT h.id, h.name, h.frequency,
+              COALESCE(
+                ARRAY_AGG(EXTRACT(DAY FROM c.checkin_date)::int ORDER BY c.checkin_date)
+                  FILTER (WHERE c.checkin_date IS NOT NULL),
+                '{}'
+              ) AS checked_days
+       FROM habits h
+       LEFT JOIN checkins c
+         ON c.habit_id = h.id
+         AND c.checkin_date >= $2::date
+         AND c.checkin_date < ($2::date + interval '1 month')
+       WHERE h.user_id = $1
+       GROUP BY h.id, h.name, h.frequency
+       ORDER BY h.id`,
+      [req.userId, monthStart]
+    );
+    res.json({
+      month: `${year}-${String(month).padStart(2, '0')}`,
+      days_in_month: daysInMonth,
+      today: isCurrentMonth ? now.getDate() : null,
+      habits: result.rows,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch calendar' });
+  }
+});
+
 // POST /habits - create a habit owned by the authenticated user
 router.post('/', async (req, res) => {
   const { name, frequency } = req.body;
@@ -72,10 +118,17 @@ router.post('/', async (req, res) => {
   }
 });
 
-// POST /habits/:id/checkin - check in for a habit owned by the authenticated user
+// POST /habits/:id/checkin - check in a habit owned by the authenticated user
+// for TODAY only. No backfilling missed days, no pre-logging future ones -
+// if a caller passes a checkin_date that isn't today, reject it rather than
+// silently using today instead, so the client finds out immediately.
 router.post('/:id/checkin', async (req, res) => {
   const { id } = req.params;
-  const checkinDate = req.body.checkin_date || new Date().toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  if (req.body.checkin_date && req.body.checkin_date !== today) {
+    return res.status(400).json({ error: 'Can only check in for today' });
+  }
+  const checkinDate = today;
   try {
     const habit = await findOwnedHabit(id, req.userId);
     if (!habit) {
