@@ -144,6 +144,17 @@ button:disabled {
   flex-shrink: 0;
 }
 
+.delete-btn {
+  background: transparent;
+  color: #b00020;
+  border: 1px solid #e0b0b6;
+}
+
+.delete-btn:hover {
+  background: #fde8e8;
+  color: #b00020;
+}
+
 .stats-btn {
   background: transparent;
   color: #333;

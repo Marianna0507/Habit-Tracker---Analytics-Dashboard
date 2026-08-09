@@ -136,4 +136,21 @@ router.get('/:id/export', async (req, res) => {
   }
 });
 
+// DELETE /habits/:id - delete a habit (and its checkins, via ON DELETE CASCADE)
+// owned by the authenticated user
+router.delete('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const habit = await findOwnedHabit(id, req.userId);
+    if (!habit) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+    await pool.query('DELETE FROM habits WHERE id = $1', [id]);
+    res.status(204).send();
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to delete habit' });
+  }
+});
+
 module.exports = router;

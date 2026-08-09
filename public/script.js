@@ -89,9 +89,15 @@ function renderHabits(habits) {
     statsBtn.className = 'stats-btn';
     statsBtn.addEventListener('click', () => toggleStats(habit, statsPanel, statsBtn));
 
+    const deleteBtn = document.createElement('button');
+    deleteBtn.textContent = 'Delete';
+    deleteBtn.className = 'delete-btn';
+    deleteBtn.addEventListener('click', () => deleteHabit(habit));
+
     row.appendChild(info);
     row.appendChild(statsBtn);
     row.appendChild(checkinBtn);
+    row.appendChild(deleteBtn);
     li.appendChild(row);
     li.appendChild(statsPanel);
     habitsList.appendChild(li);
@@ -191,6 +197,24 @@ async function exportCsv(habit) {
     a.download = `${safeFilename(habit.name, `habit-${habit.id}`)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
+  } catch (err) {
+    habitsError.textContent = err.message;
+    habitsError.classList.remove('hidden');
+  }
+}
+
+async function deleteHabit(habit) {
+  if (!confirm(`Delete "${habit.name}"? This also deletes all its check-ins.`)) {
+    return;
+  }
+  try {
+    const res = await apiFetch(`/habits/${habit.id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Could not delete habit');
+    if (charts[habit.id]) {
+      charts[habit.id].destroy();
+      delete charts[habit.id];
+    }
+    loadHabits();
   } catch (err) {
     habitsError.textContent = err.message;
     habitsError.classList.remove('hidden');
