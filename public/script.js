@@ -7,6 +7,10 @@ const authError = document.getElementById('auth-error');
 const habitsError = document.getElementById('habits-error');
 const habitsList = document.getElementById('habits-list');
 
+// Chart.js instances keyed by habit id, so we can destroy the old one
+// before drawing a new one on the same <canvas> (Chart.js throws otherwise).
+const charts = {};
+
 function getToken() {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -58,6 +62,9 @@ function renderHabits(habits) {
     const li = document.createElement('li');
     li.className = 'habit';
 
+    const row = document.createElement('div');
+    row.className = 'habit-row';
+
     const info = document.createElement('span');
     info.textContent = `${habit.name} `;
     const badge = document.createElement('span');
@@ -74,9 +81,103 @@ function renderHabits(habits) {
       checkinBtn.addEventListener('click', () => checkin(habit.id, checkinBtn));
     }
 
-    li.appendChild(info);
-    li.appendChild(checkinBtn);
+    const statsPanel = document.createElement('div');
+    statsPanel.className = 'stats-panel hidden';
+
+    const statsBtn = document.createElement('button');
+    statsBtn.textContent = 'Stats';
+    statsBtn.className = 'stats-btn';
+    statsBtn.addEventListener('click', () => toggleStats(habit.id, statsPanel, statsBtn));
+
+    row.appendChild(info);
+    row.appendChild(statsBtn);
+    row.appendChild(checkinBtn);
+    li.appendChild(row);
+    li.appendChild(statsPanel);
     habitsList.appendChild(li);
+  }
+}
+
+async function toggleStats(habitId, panel, button) {
+  const isHidden = panel.classList.contains('hidden');
+  if (!isHidden) {
+    panel.classList.add('hidden');
+    button.textContent = 'Stats';
+    return;
+  }
+
+  panel.classList.remove('hidden');
+  button.textContent = 'Hide stats';
+  panel.innerHTML = '<p class="loading">Loading...</p>';
+
+  try {
+    const res = await apiFetch(`/habits/${habitId}/stats`);
+    if (!res.ok) throw new Error('Could not load stats');
+    const stats = await res.json();
+    renderStatsPanel(panel, habitId, stats);
+  } catch (err) {
+    panel.innerHTML = `<p class="error">${err.message}</p>`;
+  }
+}
+
+function renderStatsPanel(panel, habitId, stats) {
+  panel.innerHTML = '';
+
+  const summary = document.createElement('p');
+  summary.className = 'stats-summary';
+  summary.textContent =
+    `Current streak: ${stats.current_streak} day${stats.current_streak === 1 ? '' : 's'} · ` +
+    `Completion rate: ${Math.round(stats.completion_rate * 100)}%`;
+  panel.appendChild(summary);
+
+  const canvas = document.createElement('canvas');
+  canvas.className = 'stats-chart';
+  panel.appendChild(canvas);
+
+  const exportBtn = document.createElement('button');
+  exportBtn.textContent = 'Export CSV';
+  exportBtn.addEventListener('click', () => exportCsv(habitId));
+  panel.appendChild(exportBtn);
+
+  if (charts[habitId]) {
+    charts[habitId].destroy();
+  }
+  charts[habitId] = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels: stats.history.map((h) => h.week_start),
+      datasets: [{
+        label: 'Completion rate',
+        data: stats.history.map((h) => Math.round(h.completion_rate * 100)),
+        borderColor: '#333',
+        backgroundColor: 'rgba(51, 51, 51, 0.1)',
+        tension: 0.2,
+        fill: true,
+      }],
+    },
+    options: {
+      scales: {
+        y: { min: 0, max: 100, ticks: { callback: (v) => `${v}%` } },
+      },
+      plugins: { legend: { display: false } },
+    },
+  });
+}
+
+async function exportCsv(habitId) {
+  try {
+    const res = await apiFetch(`/habits/${habitId}/export`);
+    if (!res.ok) throw new Error('Export failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `habit-${habitId}-checkins.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    habitsError.textContent = err.message;
+    habitsError.classList.remove('hidden');
   }
 }
 
