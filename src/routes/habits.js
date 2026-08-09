@@ -1,9 +1,17 @@
 const express = require('express');
+const { Readable } = require('stream');
 const pool = require('../db');
 const { authMiddleware } = require('../auth');
 
+const PYTHON_ANALYTICS_URL = process.env.PYTHON_ANALYTICS_URL;
+
 const router = express.Router();
 router.use(authMiddleware);
+
+async function findOwnedHabit(id, userId) {
+  const result = await pool.query('SELECT id FROM habits WHERE id = $1 AND user_id = $2', [id, userId]);
+  return result.rows[0] || null;
+}
 
 // GET /habits - list the authenticated user's habits, each flagged with
 // whether it's already been checked in today
@@ -50,8 +58,8 @@ router.post('/:id/checkin', async (req, res) => {
   const { id } = req.params;
   const checkinDate = req.body.checkin_date || new Date().toISOString().slice(0, 10);
   try {
-    const habit = await pool.query('SELECT id FROM habits WHERE id = $1 AND user_id = $2', [id, req.userId]);
-    if (habit.rows.length === 0) {
+    const habit = await findOwnedHabit(id, req.userId);
+    if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
     const result = await pool.query(
@@ -72,8 +80,8 @@ router.post('/:id/checkin', async (req, res) => {
 router.get('/:id/checkins', async (req, res) => {
   const { id } = req.params;
   try {
-    const habit = await pool.query('SELECT id FROM habits WHERE id = $1 AND user_id = $2', [id, req.userId]);
-    if (habit.rows.length === 0) {
+    const habit = await findOwnedHabit(id, req.userId);
+    if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
     const result = await pool.query(
@@ -84,6 +92,47 @@ router.get('/:id/checkins', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch checkins' });
+  }
+});
+
+// GET /habits/:id/stats - proxy to the Python analytics service
+router.get('/:id/stats', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const habit = await findOwnedHabit(id, req.userId);
+    if (!habit) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+    const analyticsRes = await fetch(`${PYTHON_ANALYTICS_URL}/analytics/${id}/stats`);
+    if (!analyticsRes.ok) {
+      return res.status(502).json({ error: 'Analytics service error' });
+    }
+    const stats = await analyticsRes.json();
+    res.json(stats);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Analytics service unreachable' });
+  }
+});
+
+// GET /habits/:id/export - proxy + stream a CSV of checkins from the Python service
+router.get('/:id/export', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const habit = await findOwnedHabit(id, req.userId);
+    if (!habit) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
+    const analyticsRes = await fetch(`${PYTHON_ANALYTICS_URL}/analytics/${id}/export`);
+    if (!analyticsRes.ok || !analyticsRes.body) {
+      return res.status(502).json({ error: 'Analytics service error' });
+    }
+    res.set('Content-Type', analyticsRes.headers.get('content-type') || 'text/csv');
+    res.set('Content-Disposition', analyticsRes.headers.get('content-disposition') || `attachment; filename=habit-${id}-checkins.csv`);
+    Readable.fromWeb(analyticsRes.body).pipe(res);
+  } catch (err) {
+    console.error(err);
+    res.status(502).json({ error: 'Analytics service unreachable' });
   }
 });
 

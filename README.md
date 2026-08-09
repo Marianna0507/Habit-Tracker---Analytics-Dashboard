@@ -88,6 +88,8 @@ user's own habits — there's no way to pass a `user_id` to act as someone else.
 | POST   | `/habits`                | Yes   | `{ name, frequency? }`                     | `frequency` defaults to `daily` |
 | POST   | `/habits/:id/checkin`    | Yes   | `{ checkin_date? }` (defaults to today)    | 404 if the habit doesn't exist *or* isn't yours; 409 on duplicate date |
 | GET    | `/habits/:id/checkins`   | Yes   | —                                          | Same 404 rule; newest first |
+| GET    | `/habits/:id/stats`      | Yes   | —                                          | Proxies the Python analytics service; `current_streak`, `completion_rate`, weekly `history`. 502 if that service is unreachable |
+| GET    | `/habits/:id/export`     | Yes   | —                                          | Streams a CSV of checkin dates from the Python service |
 
 ### Example (curl)
 
@@ -117,7 +119,7 @@ plain `YYYY-MM-DD` strings instead.
 
 ## Not yet built
 
-- Wiring the analytics service into the Node API or frontend (it runs
-  standalone on its own port for now — see `analytics/README.md`)
-- Auth on the analytics service itself (acceptable for now: it's
+- Auth on the analytics service itself (acceptable for now: it's only
+  reachable through Node's `/habits/:id/stats` and `/habits/:id/export`,
+  which already require a valid JWT and check habit ownership; it's also
   read-only against a read-only DB role and not exposed publicly)
