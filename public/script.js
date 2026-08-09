@@ -6,6 +6,8 @@ const logoutBtn = document.getElementById('logout-btn');
 const authError = document.getElementById('auth-error');
 const habitsError = document.getElementById('habits-error');
 const habitsList = document.getElementById('habits-list');
+const calendarError = document.getElementById('calendar-error');
+const calendarTable = document.getElementById('calendar-table');
 
 // Chart.js instances keyed by habit id, so we can destroy the old one
 // before drawing a new one on the same <canvas> (Chart.js throws otherwise).
@@ -50,6 +52,7 @@ function showAppView() {
   appView.classList.remove('hidden');
   logoutBtn.classList.remove('hidden');
   loadHabits();
+  loadCalendar();
 }
 
 function renderHabits(habits) {
@@ -215,6 +218,7 @@ async function deleteHabit(habit) {
       delete charts[habit.id];
     }
     loadHabits();
+    loadCalendar();
   } catch (err) {
     habitsError.textContent = err.message;
     habitsError.classList.remove('hidden');
@@ -239,14 +243,104 @@ async function checkin(habitId, button) {
     if (res.status === 409) {
       button.textContent = 'Already checked in today';
       button.disabled = true;
+      loadCalendar();
       return;
     }
     if (!res.ok) throw new Error('Check-in failed');
     button.textContent = 'Checked in ✓';
     button.disabled = true;
+    loadCalendar();
   } catch (err) {
     habitsError.textContent = err.message;
     habitsError.classList.remove('hidden');
+  }
+}
+
+function renderCalendar({ days_in_month, today, habits }) {
+  calendarTable.innerHTML = '';
+
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  const cornerTh = document.createElement('th');
+  cornerTh.textContent = 'Habit';
+  cornerTh.className = 'cal-habit-col';
+  headRow.appendChild(cornerTh);
+  for (let day = 1; day <= days_in_month; day++) {
+    const th = document.createElement('th');
+    th.textContent = day;
+    if (day === today) th.classList.add('cal-today-col');
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  calendarTable.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  if (habits.length === 0) {
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.textContent = 'No habits yet — add one above.';
+    td.className = 'cal-empty-row';
+    td.colSpan = days_in_month + 1;
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  }
+  for (const habit of habits) {
+    const tr = document.createElement('tr');
+    const nameTd = document.createElement('td');
+    nameTd.textContent = habit.name;
+    nameTd.className = 'cal-habit-col';
+    tr.appendChild(nameTd);
+
+    const checkedDays = new Set(habit.checked_days);
+    for (let day = 1; day <= days_in_month; day++) {
+      const td = document.createElement('td');
+      td.className = 'cal-cell';
+      if (checkedDays.has(day)) {
+        td.classList.add('cal-checked');
+        td.textContent = '✓';
+      } else if (day === today) {
+        td.classList.add('cal-today');
+        const btn = document.createElement('button');
+        btn.className = 'cal-checkin-btn';
+        btn.setAttribute('aria-label', `Check in "${habit.name}" for today`);
+        btn.addEventListener('click', () => checkinFromCalendar(habit.id, btn));
+        td.appendChild(btn);
+      } else if (today !== null && day < today) {
+        td.classList.add('cal-missed');
+      } else {
+        td.classList.add('cal-future');
+      }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  calendarTable.appendChild(tbody);
+}
+
+async function loadCalendar() {
+  calendarError.classList.add('hidden');
+  try {
+    const res = await apiFetch('/habits/calendar');
+    if (!res.ok) throw new Error('Could not load calendar');
+    const data = await res.json();
+    renderCalendar(data);
+  } catch (err) {
+    calendarError.textContent = err.message;
+    calendarError.classList.remove('hidden');
+  }
+}
+
+async function checkinFromCalendar(habitId, button) {
+  button.disabled = true;
+  try {
+    const res = await apiFetch(`/habits/${habitId}/checkin`, { method: 'POST', body: JSON.stringify({}) });
+    if (!res.ok && res.status !== 409) throw new Error('Check-in failed');
+    loadHabits();
+    loadCalendar();
+  } catch (err) {
+    calendarError.textContent = err.message;
+    calendarError.classList.remove('hidden');
+    button.disabled = false;
   }
 }
 
@@ -259,6 +353,7 @@ document.getElementById('add-habit-form').addEventListener('submit', async (e) =
     if (!res.ok) throw new Error('Could not add habit');
     document.getElementById('habit-name').value = '';
     loadHabits();
+    loadCalendar();
   } catch (err) {
     habitsError.textContent = err.message;
     habitsError.classList.remove('hidden');

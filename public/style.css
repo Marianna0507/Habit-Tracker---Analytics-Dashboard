@@ -313,3 +313,125 @@ button:disabled {
   font-size: 0.85rem;
   font-style: italic;
 }
+
+#calendar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 0.75rem;
+}
+
+.calendar-wrapper {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+#calendar-table {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+#calendar-table th,
+#calendar-table td {
+  text-align: center;
+  padding: 0;
+}
+
+#calendar-table thead th {
+  padding: 0.5rem 0.2rem;
+  color: var(--ink-soft);
+  font-weight: 700;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  min-width: 30px;
+}
+
+.cal-today-col {
+  color: var(--accent-dark) !important;
+}
+
+.cal-habit-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  text-align: left !important;
+  padding: 0.55rem 0.85rem !important;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 120px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--border);
+}
+
+thead .cal-habit-col {
+  background: var(--accent-soft);
+  z-index: 2;
+}
+
+.cal-cell {
+  width: 32px;
+  height: 32px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+tbody tr:last-child .cal-cell,
+tbody tr:last-child .cal-habit-col {
+  border-bottom: none;
+}
+
+.cal-checked {
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 700;
+}
+
+.cal-today {
+  background: var(--accent-soft);
+}
+
+.cal-checkin-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid var(--accent);
+  box-shadow: none;
+  margin: 0 auto;
+  display: block;
+}
+
+.cal-checkin-btn:hover {
+  background: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
+.cal-missed {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 4px,
+    rgba(107, 107, 133, 0.06) 4px,
+    rgba(107, 107, 133, 0.06) 8px
+  );
+}
+
+.cal-future {
+  background: transparent;
+  opacity: 0.4;
+}
+
+.cal-empty-row {
+  padding: 1.5rem !important;
+  text-align: center !important;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
