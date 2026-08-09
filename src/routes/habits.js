@@ -10,8 +10,24 @@ const router = express.Router();
 router.use(authMiddleware);
 
 async function findOwnedHabit(id, userId) {
-  const result = await pool.query('SELECT id FROM habits WHERE id = $1 AND user_id = $2', [id, userId]);
+  const result = await pool.query('SELECT id, frequency FROM habits WHERE id = $1 AND user_id = $2', [id, userId]);
   return result.rows[0] || null;
+}
+
+// Monday-Sunday bounds (as YYYY-MM-DD, end exclusive) for the ISO week
+// containing dateStr. Computed in UTC throughout - consistent with how
+// `today` is derived elsewhere in this file - to avoid local-timezone
+// date-shifting bugs from mixing UTC and local arithmetic.
+function isoWeekBounds(dateStr) {
+  const d = new Date(`${dateStr}T00:00:00Z`);
+  const dow = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  const monday = new Date(d);
+  monday.setUTCDate(d.getUTCDate() + diffToMonday);
+  const nextMonday = new Date(monday);
+  nextMonday.setUTCDate(monday.getUTCDate() + 7);
+  const fmt = (x) => x.toISOString().slice(0, 10);
+  return { weekStart: fmt(monday), weekEndExclusive: fmt(nextMonday) };
 }
 
 // Calls the Python analytics service with a timeout, so a hung/slow service
@@ -133,6 +149,16 @@ router.post('/:id/checkin', async (req, res) => {
     const habit = await findOwnedHabit(id, req.userId);
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
+    }
+    if (habit.frequency === 'weekly') {
+      const { weekStart, weekEndExclusive } = isoWeekBounds(today);
+      const existing = await pool.query(
+        'SELECT id FROM checkins WHERE habit_id = $1 AND checkin_date >= $2 AND checkin_date < $3',
+        [id, weekStart, weekEndExclusive]
+      );
+      if (existing.rows.length > 0) {
+        return res.status(409).json({ error: 'Already checked in this week' });
+      }
     }
     const result = await pool.query(
       'INSERT INTO checkins (habit_id, checkin_date) VALUES ($1, $2) RETURNING *',

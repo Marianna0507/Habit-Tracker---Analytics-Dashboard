@@ -424,6 +424,23 @@ tbody tr:last-child .cal-habit-col {
   font-weight: 700;
 }
 
+/* Weekly habit, already satisfied by a different day this week - neutral
+   "not needed here" cell, distinct from a missed day or a future one. */
+.cal-week-done {
+  background: transparent;
+  position: relative;
+}
+
+.cal-week-done::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--border);
+}
+
 .cal-today {
   background: var(--accent-soft);
 }

@@ -248,7 +248,8 @@ async function checkin(habitId, button) {
   try {
     const res = await apiFetch(`/habits/${habitId}/checkin`, { method: 'POST', body: JSON.stringify({}) });
     if (res.status === 409) {
-      button.textContent = 'Already checked in today';
+      const body = await res.json().catch(() => ({}));
+      button.textContent = body.error || 'Already checked in';
       button.disabled = true;
       loadCalendar();
       return;
@@ -268,6 +269,17 @@ function formatMonthLabel(monthStr) {
   return new Date(y, m - 1, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
 }
 
+// Key identifying the Mon-Sun ISO week a given day falls into (that week's
+// Monday, as YYYY-MM-DD) - computed in UTC to match the backend's
+// isoWeekBounds(), so "which week is this day in" agrees on both ends.
+function weekKeyForDay(year, month, day) {
+  const d = new Date(Date.UTC(year, month - 1, day));
+  const dow = d.getUTCDay();
+  const diffToMonday = dow === 0 ? -6 : 1 - dow;
+  d.setUTCDate(d.getUTCDate() + diffToMonday);
+  return d.toISOString().slice(0, 10);
+}
+
 function renderCalendar({ month, days_in_month, today, habits }) {
   calendarTitle.textContent = formatMonthLabel(month);
 
@@ -279,6 +291,11 @@ function renderCalendar({ month, days_in_month, today, habits }) {
   const now = new Date();
   const isPastMonth =
     viewYear < now.getFullYear() || (viewYear === now.getFullYear() && viewMonth < now.getMonth() + 1);
+
+  const weekKeyOfDay = [];
+  for (let day = 1; day <= days_in_month; day++) {
+    weekKeyOfDay[day] = weekKeyForDay(viewYear, viewMonth, day);
+  }
 
   calendarTable.innerHTML = '';
 
@@ -315,12 +332,24 @@ function renderCalendar({ month, days_in_month, today, habits }) {
     tr.appendChild(nameTd);
 
     const checkedDays = new Set(habit.checked_days);
+    // For weekly habits, one check-in satisfies the whole Mon-Sun week - the
+    // backend now rejects a second one, so at most one day per week is ever
+    // in checkedDays. Every other day in that same week should read as
+    // "not needed" rather than "missed" or a clickable today.
+    const checkedWeeks =
+      habit.frequency === 'weekly'
+        ? new Set([...checkedDays].map((day) => weekKeyOfDay[day]))
+        : null;
+
     for (let day = 1; day <= days_in_month; day++) {
       const td = document.createElement('td');
       td.className = 'cal-cell';
+      const weekAlreadyDone = checkedWeeks && checkedWeeks.has(weekKeyOfDay[day]);
       if (checkedDays.has(day)) {
         td.classList.add('cal-checked');
         td.textContent = '✓';
+      } else if (weekAlreadyDone) {
+        td.classList.add('cal-week-done');
       } else if (day === today) {
         td.classList.add('cal-today');
         const btn = document.createElement('button');
