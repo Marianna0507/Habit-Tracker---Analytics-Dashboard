@@ -66,8 +66,13 @@ function renderHabits(habits) {
     info.appendChild(badge);
 
     const checkinBtn = document.createElement('button');
-    checkinBtn.textContent = 'Check in';
-    checkinBtn.addEventListener('click', () => checkin(habit.id, checkinBtn));
+    if (habit.checked_in_today) {
+      checkinBtn.textContent = 'Checked in ✓';
+      checkinBtn.disabled = true;
+    } else {
+      checkinBtn.textContent = 'Check in';
+      checkinBtn.addEventListener('click', () => checkin(habit.id, checkinBtn));
+    }
 
     li.appendChild(info);
     li.appendChild(checkinBtn);

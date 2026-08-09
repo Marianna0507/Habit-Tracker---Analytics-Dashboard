@@ -5,10 +5,21 @@ const { authMiddleware } = require('../auth');
 const router = express.Router();
 router.use(authMiddleware);
 
-// GET /habits - list the authenticated user's habits
+// GET /habits - list the authenticated user's habits, each flagged with
+// whether it's already been checked in today
 router.get('/', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM habits WHERE user_id = $1 ORDER BY id', [req.userId]);
+    const result = await pool.query(
+      `SELECT h.*,
+              EXISTS (
+                SELECT 1 FROM checkins c
+                WHERE c.habit_id = h.id AND c.checkin_date = CURRENT_DATE
+              ) AS checked_in_today
+       FROM habits h
+       WHERE h.user_id = $1
+       ORDER BY h.id`,
+      [req.userId]
+    );
     res.json(result.rows);
   } catch (err) {
     console.error(err);
