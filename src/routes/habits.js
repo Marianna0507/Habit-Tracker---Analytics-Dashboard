@@ -4,6 +4,7 @@ const pool = require('../db');
 const { authMiddleware } = require('../auth');
 
 const PYTHON_ANALYTICS_URL = process.env.PYTHON_ANALYTICS_URL;
+const ANALYTICS_TIMEOUT_MS = 5000;
 
 const router = express.Router();
 router.use(authMiddleware);
@@ -11,6 +12,24 @@ router.use(authMiddleware);
 async function findOwnedHabit(id, userId) {
   const result = await pool.query('SELECT id FROM habits WHERE id = $1 AND user_id = $2', [id, userId]);
   return result.rows[0] || null;
+}
+
+// Calls the Python analytics service with a timeout, so a hung/slow service
+// fails fast instead of leaving the request (and the client) hanging
+// indefinitely. Throws an Error with a `.status` to send back to the client:
+// 504 if it timed out, 502 if it's unreachable/refused the connection.
+async function fetchAnalytics(path) {
+  try {
+    return await fetch(`${PYTHON_ANALYTICS_URL}${path}`, {
+      signal: AbortSignal.timeout(ANALYTICS_TIMEOUT_MS),
+    });
+  } catch (err) {
+    const wrapped = new Error(
+      err.name === 'TimeoutError' ? 'Analytics service timed out' : 'Analytics service unreachable'
+    );
+    wrapped.status = err.name === 'TimeoutError' ? 504 : 502;
+    throw wrapped;
+  }
 }
 
 // GET /habits - list the authenticated user's habits, each flagged with
@@ -103,7 +122,15 @@ router.get('/:id/stats', async (req, res) => {
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
-    const analyticsRes = await fetch(`${PYTHON_ANALYTICS_URL}/analytics/${id}/stats`);
+    let analyticsRes;
+    try {
+      analyticsRes = await fetchAnalytics(`/analytics/${id}/stats`);
+    } catch (err) {
+      return res.status(err.status).json({ error: err.message });
+    }
+    if (analyticsRes.status === 404) {
+      return res.status(404).json({ error: 'Habit not found' });
+    }
     if (!analyticsRes.ok) {
       return res.status(502).json({ error: 'Analytics service error' });
     }
@@ -111,7 +138,7 @@ router.get('/:id/stats', async (req, res) => {
     res.json(stats);
   } catch (err) {
     console.error(err);
-    res.status(502).json({ error: 'Analytics service unreachable' });
+    res.status(500).json({ error: 'Failed to fetch stats' });
   }
 });
 
@@ -123,7 +150,12 @@ router.get('/:id/export', async (req, res) => {
     if (!habit) {
       return res.status(404).json({ error: 'Habit not found' });
     }
-    const analyticsRes = await fetch(`${PYTHON_ANALYTICS_URL}/analytics/${id}/export`);
+    let analyticsRes;
+    try {
+      analyticsRes = await fetchAnalytics(`/analytics/${id}/export`);
+    } catch (err) {
+      return res.status(err.status).json({ error: err.message });
+    }
     if (!analyticsRes.ok || !analyticsRes.body) {
       return res.status(502).json({ error: 'Analytics service error' });
     }
@@ -132,7 +164,7 @@ router.get('/:id/export', async (req, res) => {
     Readable.fromWeb(analyticsRes.body).pipe(res);
   } catch (err) {
     console.error(err);
-    res.status(502).json({ error: 'Analytics service unreachable' });
+    res.status(500).json({ error: 'Failed to export checkins' });
   }
 });
 
