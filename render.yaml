@@ -1,3 +1,9 @@
+# Render Blueprint - deploys all three pieces together.
+# Docs: https://render.com/docs/blueprint-spec (verify field names there if
+# Render's dashboard rejects anything below - this file is written against
+# the documented spec but has NOT been deployed/tested against a live
+# Render account, unlike everything else in this repo.
+
 databases:
   - name: habit-tracker-db
     databaseName: habit_tracker
@@ -20,6 +26,10 @@ services:
         generateValue: true
       - key: JWT_EXPIRES_IN
         value: 7d
+      # Render's private networking resolves other services in the same
+      # project by their `name` below - mirrors docker-compose.yml's
+      # http://analytics:8000 pattern. If you rename the analytics service,
+      # update this to match.
       - key: PYTHON_ANALYTICS_URL
         value: http://habit-tracker-analytics:8000
       - key: PORT
@@ -32,6 +42,12 @@ services:
     dockerContext: ./analytics
     plan: free
     envVars:
+      # Render's managed Postgres only gives you the admin connection
+      # string via fromDatabase - there's no Blueprint mechanism to
+      # provision the read-only analytics_reader role automatically.
+      # Set this manually after creating the analytics_reader role (see
+      # README.md's Deployment section) - same host/port/db as DATABASE_URL
+      # above, just a different user.
       - key: DATABASE_URL
         sync: false
       - key: PORT

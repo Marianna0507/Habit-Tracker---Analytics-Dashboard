@@ -34,17 +34,17 @@ three independently-runnable pieces that talk to each other.
                                                  │  this service is down)
 ```
 
-**Why two backend services instead of one?** So a bug in the analytics
-code cannot corrupt data, even in principle. Node never talks to Postgres
+**Why two backend services instead of one?** 
+A bug in the analytics code cannot corrupt data, even in principle. Node never talks to Postgres
 on the Python service's behalf, and Python never touches `/auth` or writes
 any data — it physically can't, since it connects as `analytics_reader`, a
 Postgres role with `SELECT`-only grants (see `db/roles/analytics_reader.sql`).
 
 **Why does Node proxy the analytics endpoints instead of the frontend
-calling Python directly?** Two reasons: (1) auth and habit-ownership only
-need to be checked in one place (Node already verifies the JWT and that the
-habit belongs to the caller before proxying), and (2) the analytics service
-itself has no auth of its own — it's only safe to expose because the only
+calling Python directly?** 
+Two reasons: 
+1. auth and habit-ownership only need to be checked in one place (Node already verifies the JWT and that the habit belongs to the caller before proxying)
+2. the analytics service itself has no auth of its own — it's only safe to expose because the only
 thing that can reach it over the network is Node (and, in Docker, only
 other containers on the same internal network can resolve `analytics:8000`
 at all).
