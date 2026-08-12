@@ -30,6 +30,11 @@ services:
         value: 7d
       - key: PYTHON_ANALYTICS_URL
         value: http://localhost:8000
+      # Render's managed Postgres requires TLS on every connection, which
+      # pg (Node) doesn't attempt unless told to - see src/db.js. Local
+      # Docker Postgres has no SSL configured, so this stays unset there.
+      - key: PGSSL
+        value: 'true'
       # Render's managed Postgres only gives you the admin connection
       # string via fromDatabase - there's no Blueprint mechanism to
       # provision the read-only analytics_reader role automatically.
