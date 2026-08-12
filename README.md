@@ -34,6 +34,13 @@ three independently-runnable pieces that talk to each other.
                                                  │  this service is down)
 ```
 
+This is the logical architecture, and exactly how local dev runs (two
+separate containers via `docker-compose.yml`). The live Render deployment
+packages both processes into one container instead — see
+[Deployment](#deployment) — but the division of responsibility (Node never
+touches Postgres on Python's behalf, Python connects as a SELECT-only role)
+is unchanged either way.
+
 **Why two backend services instead of one?** 
 A bug in the analytics code cannot corrupt data, even in principle. Node never talks to Postgres
 on the Python service's behalf, and Python never touches `/auth` or writes
@@ -58,8 +65,10 @@ at all).
   8-week history, CSV export
 - `db/` — `schema.sql`, the read-only role setup, and a reference query
 - `docker-compose.yml`, `Dockerfile`, `analytics/Dockerfile` — run all three
-  services together in containers
-- `render.yaml` — Render Blueprint for deployment (see [Deployment](#deployment) below)
+  services together as separate containers, for local dev
+- `render.yaml`, `Dockerfile.render`, `start.render.sh` — Render deployment,
+  which packages the API and analytics service into one combined container
+  instead (see [Deployment](#deployment) below for why)
 
 ## Setup
 
@@ -247,26 +256,51 @@ Single-page vanilla JS app (`public/`), no build step:
 
 ## Deployment
 
-`render.yaml` is a Render Blueprint that provisions all three pieces
-(managed Postgres, the Node API, and the analytics service) together. It's
-written against Render's documented Blueprint spec but has **not been
-deployed or tested against a live Render account** — verify field names in
-Render's dashboard before trusting it. One step it can't automate: Render's
-managed Postgres only exposes the admin connection string via
-`fromDatabase`, so the read-only `analytics_reader` role (and its
-`DATABASE_URL`, set with `sync: false` in `render.yaml`) has to be created
-and wired up manually after the database is provisioned — see the comments
-in `render.yaml` and `db/roles/analytics_reader.sql`.
+Live at **https://habit-tracker-api-fcim.onrender.com**, deployed via the
+`render.yaml` Blueprint on Render's free tier.
+
+**Why one container instead of three, unlike local dev?** Render's free
+tier doesn't support private networking between separate services (that's
+a paid-plan feature) — a plain web service on the free tier can't resolve
+or reach another one internally. So instead of a separate analytics
+service, `Dockerfile.render` builds one image containing both the Node API
+and the Python analytics service; `start.render.sh` starts uvicorn bound to
+`127.0.0.1:8000` in the background and Node in the foreground, and Node
+talks to it over `localhost` — no network hop, and (unlike the local
+Docker setup, where the analytics container is at least reachable from
+other containers on the same Docker network) the analytics process is now
+completely unreachable from outside the container, since only Node's port
+is ever exposed. `render.yaml`'s `databases:`/`services:` still declare
+just one database and one web service accordingly. Local dev is unaffected
+— `docker-compose.yml` still runs the original two-container setup via the
+plain `Dockerfile` and `analytics/Dockerfile`.
+
+Two things `render.yaml` can't automate, done manually after the Blueprint
+provisions the database:
+
+1. **The `analytics_reader` role.** Render's managed Postgres only exposes
+   the admin connection string via `fromDatabase`, so the read-only role
+   (`db/roles/analytics_reader.sql`) has to be created by hand, and its
+   connection string set as `ANALYTICS_DATABASE_URL` (`sync: false` in
+   `render.yaml`) — passed only to the background analytics process in
+   `start.render.sh`, never to Node.
+2. **TLS.** Render's managed Postgres requires TLS on every connection, but
+   `pg` (Node) doesn't attempt it unless told to — `src/db.js` enables it
+   when `PGSSL=true`, which `render.yaml` sets for the deployed service
+   only (local Docker Postgres has no SSL configured, so this stays unset
+   there). `psycopg` (Python) negotiates TLS automatically either way, no
+   equivalent flag needed on the analytics side.
 
 Before pushing this repo anywhere public: `db/roles/analytics_reader.sql`
-has a hardcoded password that's fine for local dev only — replace it for
-any real deployment.
+has a placeholder password that's fine for local dev only — generate a
+real one for any real deployment (the live one above uses its own,
+unrelated to what's in that file).
 
 ## Not yet built
 
 - Auth on the analytics service itself (acceptable for now: it's only
   reachable through Node's `/habits/:id/stats` and `/habits/:id/export`,
-  which already require a valid JWT and check habit ownership; in Docker
-  it's also only reachable from other containers on the same network, not
-  the host or the internet)
-- An actual live deployment (Blueprint is ready, see [Deployment](#deployment))
+  which already require a valid JWT and check habit ownership; it's never
+  itself exposed to the host or the internet, whether that's "other
+  containers on the same Docker network" locally or "same container,
+  localhost-only" on Render, see [Deployment](#deployment))
