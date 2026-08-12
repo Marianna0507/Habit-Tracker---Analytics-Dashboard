@@ -1,7 +1,7 @@
 -- Read-only role for the Python analytics service.
 -- Run manually (see analytics/README.md) — not part of schema.sql because
 -- the password shouldn't live in a file that gets re-run casually.
-CREATE ROLE analytics_reader WITH LOGIN PASSWORD 'lUhz9Ihmkbo73KrBNLmMMRF';
+CREATE ROLE analytics_reader WITH LOGIN PASSWORD 'replace-with-the-role-password';
 
 GRANT CONNECT ON DATABASE habit_tracker TO analytics_reader;
 GRANT USAGE ON SCHEMA public TO analytics_reader;

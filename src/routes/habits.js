@@ -40,6 +40,7 @@ async function fetchAnalytics(path) {
       signal: AbortSignal.timeout(ANALYTICS_TIMEOUT_MS),
     });
   } catch (err) {
+    console.error('fetchAnalytics failed:', PYTHON_ANALYTICS_URL + path, err);
     const wrapped = new Error(
       err.name === 'TimeoutError' ? 'Analytics service timed out' : 'Analytics service unreachable'
     );
