@@ -1,5 +1,7 @@
 node_modules
 .env
 .git
-analytics
+analytics/venv
+analytics/__pycache__
+analytics/.env
 npm-debug.log*
