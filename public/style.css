@@ -1,8 +1,12 @@
 :root {
-  /* Tells browsers (Android/Chrome forced dark theme especially) that this
-     page has its own deliberate light palette, so they don't repaint
-     backgrounds/colors with their own auto-dark heuristics. */
-  color-scheme: light;
+  /* Tells browsers (Android/Chrome/Samsung Internet forced dark theme
+     especially) that this page handles color-scheme itself, so they skip
+     their own auto-darkening repaint. Samsung Internet's own dev docs say
+     their force-dark heuristic specifically looks for "light dark" (both
+     supported) - declaring "light" alone isn't reliably enough for it to
+     back off, even though the page has no actual dark styles: nothing here
+     changes under prefers-color-scheme: dark, so it always renders light. */
+  color-scheme: light dark;
   --accent: #6d5efc;
   --accent-dark: #5b4bf5;
   --accent-soft: #efecff;
@@ -19,17 +23,6 @@
   --radius: 14px;
   --shadow: 0 4px 16px rgba(88, 74, 214, 0.08), 0 1px 3px rgba(88, 74, 214, 0.06);
   --shadow-hover: 0 8px 24px rgba(88, 74, 214, 0.14), 0 2px 6px rgba(88, 74, 214, 0.08);
-}
-
-/* Some browsers (Samsung Internet in particular) only recognize a page as
-   "dark-mode aware" - and skip their own forced auto-darkening - if it has
-   an explicit prefers-color-scheme: dark rule, not just color-scheme: light
-   alone. Re-declaring the same light palette here is a no-op visually but
-   signals that intentionally. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: light;
-  }
 }
 
 * {
