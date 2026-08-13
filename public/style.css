@@ -1,26 +1,64 @@
+:root {
+  /* Tells browsers (Android/Chrome/Samsung Internet forced dark theme
+     especially) that this page handles color-scheme itself, so they skip
+     their own auto-darkening repaint. Samsung Internet's own dev docs say
+     their force-dark heuristic specifically looks for "light dark" (both
+     supported) - declaring "light" alone isn't reliably enough for it to
+     back off, even though the page has no actual dark styles: nothing here
+     changes under prefers-color-scheme: dark, so it always renders light. */
+  color-scheme: light dark;
+  --accent: #6d5efc;
+  --accent-dark: #5b4bf5;
+  --accent-soft: #efecff;
+  --success: #17a673;
+  --success-soft: #e3f8ef;
+  --danger: #e5484d;
+  --danger-soft: #fdecec;
+  --ink: #22223a;
+  --ink-soft: #6b6b85;
+  --border: #e6e4f5;
+  --card: #ffffff;
+  --page-start: #f3f1ff;
+  --page-end: #eef6ff;
+  --radius: 14px;
+  --shadow: 0 4px 16px rgba(88, 74, 214, 0.08), 0 1px 3px rgba(88, 74, 214, 0.06);
+  --shadow-hover: 0 8px 24px rgba(88, 74, 214, 0.14), 0 2px 6px rgba(88, 74, 214, 0.08);
+}
+
 * {
   box-sizing: border-box;
 }
 
+html {
+  background: var(--page-start);
+}
+
 body {
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  max-width: 480px;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  max-width: 520px;
   margin: 0 auto;
-  padding: 2rem 1rem;
-  background: #f7f7f9;
-  color: #1a1a1a;
+  padding: 2.5rem 1.25rem 4rem;
+  min-height: 100vh;
+  background: linear-gradient(160deg, var(--page-start) 0%, var(--page-end) 100%);
+  color: var(--ink);
 }
 
 header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 h1 {
-  font-size: 1.5rem;
+  font-size: 1.65rem;
+  font-weight: 800;
   margin: 0;
+  letter-spacing: -0.02em;
+  background: linear-gradient(135deg, var(--accent) 0%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .hidden {
@@ -29,40 +67,50 @@ h1 {
 
 .auth-tabs {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  background: var(--accent-soft);
+  padding: 0.3rem;
+  border-radius: 999px;
 }
 
 .tab-btn {
   flex: 1;
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  background: #eee;
-  border-radius: 6px;
+  padding: 0.55rem;
+  border: none;
+  background: transparent;
+  color: var(--accent-dark);
+  border-radius: 999px;
   cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .tab-btn.active {
-  background: #333;
-  color: white;
-  border-color: #333;
+  background: var(--card);
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(88, 74, 214, 0.15);
 }
 
 .auth-form,
 #add-habit-form {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  background: white;
-  padding: 1rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  gap: 1rem;
+  background: var(--card);
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  border: 1px solid var(--border);
 }
 
 #add-habit-form {
   flex-direction: row;
   align-items: center;
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  gap: 0.6rem;
 }
 
 #add-habit-form input {
@@ -72,81 +120,397 @@ h1 {
 label {
   display: flex;
   flex-direction: column;
-  font-size: 0.85rem;
-  color: #555;
-  gap: 0.25rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+  gap: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 input,
 select {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--ink);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  font-family: inherit;
+}
+
+input:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 button {
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1.1rem;
   border: none;
-  border-radius: 6px;
-  background: #333;
+  border-radius: 10px;
+  background: var(--accent);
   color: white;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 6px rgba(109, 94, 252, 0.35);
 }
 
 button:hover {
-  background: #555;
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(109, 94, 252, 0.4);
+}
+
+button:active {
+  transform: translateY(0);
 }
 
 button:disabled {
-  background: #999;
+  background: var(--success);
+  box-shadow: none;
   cursor: default;
+  transform: none;
+  opacity: 0.85;
 }
 
 #logout-btn {
   background: transparent;
-  color: #333;
-  border: 1px solid #ccc;
+  color: var(--ink-soft);
+  border: 1.5px solid var(--border);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+#logout-btn:hover {
+  background: var(--card);
+  color: var(--ink);
+  transform: none;
+  box-shadow: var(--shadow);
 }
 
 .error {
-  color: #b00020;
-  background: #fde8e8;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.9rem;
+  color: var(--danger);
+  background: var(--danger-soft);
+  padding: 0.6rem 0.85rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid rgba(229, 72, 77, 0.15);
+}
+
+.habits-header {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.6rem 1.1rem;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius) var(--radius) 0 0;
 }
 
 #habits-list {
   list-style: none;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  margin: 0 0 1.5rem;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius) var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 
-.habit {
+.habit-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: white;
-  padding: 0.75rem 1rem;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  gap: 0.5rem;
+  padding: 0.75rem 1.1rem;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s ease;
+}
+
+.habit-row:hover {
+  background: rgba(109, 94, 252, 0.05);
+}
+
+.habit:last-child .habit-row {
+  border-bottom: none;
+}
+
+.habit:has(.stats-panel:not(.hidden)) .habit-row {
+  border-bottom: 1px dashed var(--border);
+}
+
+.habit-row button {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  padding: 0.5rem 0.85rem;
+}
+
+.delete-btn {
+  background: transparent;
+  color: var(--danger);
+  border: 1.5px solid rgba(229, 72, 77, 0.3);
+  box-shadow: none;
+}
+
+.delete-btn:hover {
+  background: var(--danger-soft);
+  color: var(--danger);
+  box-shadow: none;
+}
+
+.stats-btn {
+  background: transparent;
+  color: var(--accent-dark);
+  border: 1.5px solid var(--accent-soft);
+  box-shadow: none;
+}
+
+.stats-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  box-shadow: none;
 }
 
 .badge {
-  font-size: 0.75rem;
-  color: #666;
-  background: #eee;
-  padding: 0.1rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+  background: var(--accent-soft);
+  padding: 0.2rem 0.6rem;
   border-radius: 999px;
   margin-left: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .empty {
   text-align: center;
-  color: #888;
-  padding: 1rem;
+  color: var(--ink-soft);
+  padding: 2rem 1rem;
+  font-size: 0.9rem;
+}
+
+.stats-panel {
+  padding: 0 1.1rem 1rem;
+}
+
+.stats-summary {
+  margin: 0 0 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.stats-chart {
+  max-height: 180px;
+  margin-bottom: 0.85rem;
+}
+
+.loading {
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+#calendar-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0;
+  min-width: 11ch;
+  text-align: center;
+}
+
+.cal-nav-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--accent-dark);
+  border: 1.5px solid var(--border);
+  box-shadow: none;
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cal-nav-btn:hover {
+  background: var(--accent-soft);
+  transform: none;
+  box-shadow: none;
+}
+
+.calendar-wrapper {
+  overflow-x: auto;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+#calendar-table {
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+#calendar-table th,
+#calendar-table td {
+  text-align: center;
+  padding: 0;
+}
+
+#calendar-table thead th {
+  padding: 0.5rem 0.2rem;
+  color: var(--ink-soft);
+  font-weight: 700;
+  background: var(--accent-soft);
+  border-bottom: 1px solid var(--border);
+  min-width: 30px;
+}
+
+.cal-today-col {
+  color: var(--accent-dark) !important;
+}
+
+.cal-habit-col {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  text-align: left !important;
+  padding: 0.55rem 0.85rem !important;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 120px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--border);
+}
+
+thead .cal-habit-col {
+  background: var(--accent-soft);
+  z-index: 2;
+}
+
+.cal-cell {
+  width: 32px;
+  height: 32px;
+  border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+}
+
+tbody tr:last-child .cal-cell,
+tbody tr:last-child .cal-habit-col {
+  border-bottom: none;
+}
+
+.cal-checked {
+  background: var(--success-soft);
+  color: var(--success);
+  font-weight: 700;
+}
+
+/* Weekly habit, already satisfied by a different day this week - neutral
+   "not needed here" cell, distinct from a missed day or a future one. */
+.cal-week-done {
+  background: transparent;
+  position: relative;
+}
+
+.cal-week-done::after {
+  content: "";
+  display: block;
+  width: 4px;
+  height: 4px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.cal-today {
+  background: var(--accent-soft);
+}
+
+.cal-checkin-btn {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  border: 2px solid var(--accent);
+  box-shadow: none;
+  margin: 0 auto;
+  display: block;
+}
+
+.cal-checkin-btn:hover {
+  background: var(--accent);
+  transform: none;
+  box-shadow: none;
+}
+
+.cal-missed {
+  background: repeating-linear-gradient(
+    135deg,
+    transparent,
+    transparent 4px,
+    rgba(107, 107, 133, 0.06) 4px,
+    rgba(107, 107, 133, 0.06) 8px
+  );
+}
+
+.cal-future {
+  background: transparent;
+  opacity: 0.4;
+}
+
+.cal-empty-row {
+  padding: 1.5rem !important;
+  text-align: center !important;
+  color: var(--ink-soft);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+
+  #add-habit-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .habit-row {
+    flex-wrap: wrap;
+  }
 }

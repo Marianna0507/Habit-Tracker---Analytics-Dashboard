@@ -1,0 +1,48 @@
+# Render Blueprint - deploys the database and one combined web service
+# (Node API + Python analytics, see Dockerfile.render) together.
+# Docs: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: habit-tracker-db
+    databaseName: habit_tracker
+    user: habit_user
+    plan: free
+
+services:
+  # Runs the Node API and the Python analytics service together in one
+  # container (see Dockerfile.render) - Render's free tier doesn't support
+  # private networking between separate services, so there's no free way
+  # to run them as two services the way docker-compose.yml does locally.
+  - type: web
+    name: habit-tracker-api
+    env: docker
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: habit-tracker-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: PYTHON_ANALYTICS_URL
+        value: http://localhost:8000
+      # Render's managed Postgres requires TLS on every connection, which
+      # pg (Node) doesn't attempt unless told to - see src/db.js. Local
+      # Docker Postgres has no SSL configured, so this stays unset there.
+      - key: PGSSL
+        value: 'true'
+      # Render's managed Postgres only gives you the admin connection
+      # string via fromDatabase - there's no Blueprint mechanism to
+      # provision the read-only analytics_reader role automatically.
+      # Set this manually after creating the analytics_reader role (see
+      # README.md's Deployment section) - same host/port/db as DATABASE_URL
+      # above, just the read-only analytics_reader user. Passed to the
+      # analytics process only (see start.render.sh), never to Node.
+      - key: ANALYTICS_DATABASE_URL
+        sync: false
+      - key: PORT
+        value: 3000

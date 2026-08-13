@@ -1,0 +1,33 @@
+# Combined image for Render's free tier only: runs both the Node API and
+# the Python analytics service in one container, talking over localhost,
+# because private networking between separate Render services requires a
+# paid plan. Local dev keeps using two separate containers - see
+# Dockerfile, analytics/Dockerfile, and docker-compose.yml, which are
+# unaffected by this file.
+FROM python:3.13-slim
+
+# Debian's own apt nodejs package lags well behind current LTS - pull a
+# real current Node instead, since Express 5 wants a reasonably modern one.
+RUN apt-get update && apt-get install -y --no-install-recommends curl gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY src ./src
+COPY public ./public
+
+COPY analytics/requirements.txt ./analytics/requirements.txt
+RUN pip install --no-cache-dir -r analytics/requirements.txt
+COPY analytics/main.py analytics/db.py ./analytics/
+
+COPY start.render.sh ./start.render.sh
+RUN chmod +x ./start.render.sh
+
+ENV PORT=3000
+EXPOSE 3000
+
+CMD ["./start.render.sh"]

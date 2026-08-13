@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f3f1ff">
   <title>Habit Tracker</title>
   <link rel="stylesheet" href="style.css">
 </head>
@@ -44,10 +47,25 @@
       </form>
 
       <p id="habits-error" class="error hidden"></p>
+      <div class="habits-header">
+        <span>Habit</span>
+        <span>Actions</span>
+      </div>
       <ul id="habits-list"></ul>
+
+      <div class="calendar-nav">
+        <button id="cal-prev" class="cal-nav-btn" aria-label="Previous month">&#8249;</button>
+        <h2 id="calendar-title">This month</h2>
+        <button id="cal-next" class="cal-nav-btn" aria-label="Next month">&#8250;</button>
+      </div>
+      <p id="calendar-error" class="error hidden"></p>
+      <div class="calendar-wrapper">
+        <table id="calendar-table"></table>
+      </div>
     </section>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
   <script src="script.js"></script>
 </body>
 </html>
