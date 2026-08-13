@@ -1,4 +1,8 @@
 :root {
+  /* Tells browsers (Android/Chrome forced dark theme especially) that this
+     page has its own deliberate light palette, so they don't repaint
+     backgrounds/colors with their own auto-dark heuristics. */
+  color-scheme: light;
   --accent: #6d5efc;
   --accent-dark: #5b4bf5;
   --accent-soft: #efecff;
@@ -21,6 +25,10 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--page-start);
+}
+
 body {
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
   max-width: 520px;
@@ -28,7 +36,6 @@ body {
   padding: 2.5rem 1.25rem 4rem;
   min-height: 100vh;
   background: linear-gradient(160deg, var(--page-start) 0%, var(--page-end) 100%);
-  background-attachment: fixed;
   color: var(--ink);
 }
 
@@ -483,4 +490,23 @@ tbody tr:last-child .cal-habit-col {
   text-align: center !important;
   color: var(--ink-soft);
   font-size: 0.85rem;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 1.5rem 1rem 3rem;
+  }
+
+  h1 {
+    font-size: 1.4rem;
+  }
+
+  #add-habit-form {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .habit-row {
+    flex-wrap: wrap;
+  }
 }
