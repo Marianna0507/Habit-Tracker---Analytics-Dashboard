@@ -9,15 +9,23 @@ const ANALYTICS_TIMEOUT_MS = 5000;
 const router = express.Router();
 router.use(authMiddleware);
 
+// "Today" as YYYY-MM-DD in Greece local time (handles EET/EEST automatically),
+// regardless of the server/container's own timezone (Render runs UTC).
+function athensToday() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Athens' }).format(new Date());
+}
+
 async function findOwnedHabit(id, userId) {
   const result = await pool.query('SELECT id, frequency FROM habits WHERE id = $1 AND user_id = $2', [id, userId]);
   return result.rows[0] || null;
 }
 
 // Monday-Sunday bounds (as YYYY-MM-DD, end exclusive) for the ISO week
-// containing dateStr. Computed in UTC throughout - consistent with how
-// `today` is derived elsewhere in this file - to avoid local-timezone
-// date-shifting bugs from mixing UTC and local arithmetic.
+// containing dateStr. Computed in UTC throughout - dateStr is a plain
+// calendar date (already resolved to Athens local time by the caller), so
+// treating it as UTC here is just calendar arithmetic, not a timezone
+// conversion - it avoids local-timezone date-shifting bugs from mixing UTC
+// and local arithmetic.
 function isoWeekBounds(dateStr) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   const dow = d.getUTCDay(); // 0 = Sunday .. 6 = Saturday
@@ -57,12 +65,12 @@ router.get('/', async (req, res) => {
       `SELECT h.*,
               EXISTS (
                 SELECT 1 FROM checkins c
-                WHERE c.habit_id = h.id AND c.checkin_date = CURRENT_DATE
+                WHERE c.habit_id = h.id AND c.checkin_date = $2
               ) AS checked_in_today
        FROM habits h
        WHERE h.user_id = $1
        ORDER BY h.id`,
-      [req.userId]
+      [req.userId, athensToday()]
     );
     res.json(result.rows);
   } catch (err) {
@@ -79,13 +87,13 @@ router.get('/calendar', async (req, res) => {
   if (monthParam && !/^\d{4}-\d{2}$/.test(monthParam)) {
     return res.status(400).json({ error: 'month must be in YYYY-MM format' });
   }
-  const now = new Date();
+  const [todayYear, todayMonth, todayDay] = athensToday().split('-').map(Number);
   const [year, month] = monthParam
     ? monthParam.split('-').map(Number)
-    : [now.getFullYear(), now.getMonth() + 1];
+    : [todayYear, todayMonth];
   const monthStart = `${year}-${String(month).padStart(2, '0')}-01`;
   const daysInMonth = new Date(year, month, 0).getDate();
-  const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
+  const isCurrentMonth = year === todayYear && month === todayMonth;
 
   try {
     const result = await pool.query(
@@ -108,7 +116,7 @@ router.get('/calendar', async (req, res) => {
     res.json({
       month: `${year}-${String(month).padStart(2, '0')}`,
       days_in_month: daysInMonth,
-      today: isCurrentMonth ? now.getDate() : null,
+      today: isCurrentMonth ? todayDay : null,
       habits: result.rows,
     });
   } catch (err) {
@@ -141,7 +149,7 @@ router.post('/', async (req, res) => {
 // silently using today instead, so the client finds out immediately.
 router.post('/:id/checkin', async (req, res) => {
   const { id } = req.params;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = athensToday();
   if (req.body.checkin_date && req.body.checkin_date !== today) {
     return res.status(400).json({ error: 'Can only check in for today' });
   }

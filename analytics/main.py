@@ -1,7 +1,8 @@
 import csv
 import io
 import re
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
@@ -10,11 +11,19 @@ from db import get_connection
 
 app = FastAPI(title="Habit Tracker Analytics")
 
+ATHENS_TZ = ZoneInfo("Europe/Athens")
+
+
+def athens_today() -> date:
+    """Today's date in Greece local time, regardless of the server/container's
+    own timezone (Render runs UTC)."""
+    return datetime.now(ATHENS_TZ).date()
+
 
 def compute_current_streak(checkin_dates: set[date]) -> int:
     """Consecutive days of check-ins ending today (or yesterday, if today's
     check-in just hasn't happened yet — a missed *yesterday* still breaks it)."""
-    today = date.today()
+    today = athens_today()
     if today in checkin_dates:
         cursor = today
     elif (today - timedelta(days=1)) in checkin_dates:
@@ -34,7 +43,7 @@ def compute_history(created_at: date, frequency: str, checkin_dates: set[date], 
     Weeks before the habit existed are skipped; partial weeks (the habit's
     creation week, and the current in-progress week) divide by elapsed days
     so far rather than a flat 7, so they aren't unfairly penalized."""
-    today = date.today()
+    today = athens_today()
     current_week_start = today - timedelta(days=today.weekday())
 
     history = []
@@ -61,7 +70,7 @@ def compute_history(created_at: date, frequency: str, checkin_dates: set[date], 
 def compute_completion_rate(created_at: date, frequency: str, checkin_dates: set[date]) -> float:
     """Fraction of elapsed periods (days, or ISO weeks for weekly habits)
     since the habit was created that have at least one check-in."""
-    today = date.today()
+    today = athens_today()
     if frequency == "weekly":
         total_periods = ((today - created_at).days // 7) + 1
         completed_periods = len({d.isocalendar()[:2] for d in checkin_dates})
